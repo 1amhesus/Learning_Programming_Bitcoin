@@ -29,6 +29,7 @@ use std::fmt::{Debug, Display};
 struct FieldElement {
     value: i32,
     magnitude: i32,
+    normalized: bool,
 }
 
 /* In Jimmy Song's book, he helped with a mathematical understanding of prime parameters by explaining the concept of order, 
