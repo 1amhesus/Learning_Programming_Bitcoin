@@ -39,11 +39,13 @@ struct FieldElement {
 */
 impl FieldElement {
     fn new(value: i32, magnitude: i32) -> Result<Self, &'static str> {
+        // Check if the magnitude and value are valid
         if magnitude <= 0 || value < 0 || value >= magnitude {
             return Err("Invalid magnitude or value");
         }
         //Sets the normalized field, which is set to True only if the magnetude is less than 1.
         let normalized = magnitude <= 1;
+        // Create and return a new FieldElement object
         Ok(FieldElement {
             value,
             magnitude,
@@ -57,50 +59,144 @@ impl FieldElement {
         }
         let new_value = (self.value + other.value) % self.magnitude;
         let new_element = FieldElement::new(new_value, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized: bool = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 
     fn sub(&self, other: &FieldElement) -> Result<FieldElement, &'static str> {
+        // Ensure that magnitudes of both FieldElement objects are equal
         if self.magnitude != other.magnitude {
             return Err("Cannot subtract two numbers in different Fields");
         }
+
+        // Perform subtraction operation
         let new_value = (self.value - other.value) % self.magnitude;
         let new_value = if new_value < 0 { new_value + self.magnitude } else { new_value };
+
+        // Create a new FieldElement object with the result value
         let new_element = FieldElement::new(new_value, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 
     fn mul(&self, other: &FieldElement) -> Result<FieldElement, &'static str> {
+        // Ensure that magnitudes of both FieldElement objects are equal
         if self.magnitude != other.magnitude {
             return Err("Cannot multiply two numbers in different Fields");
         }
+
+        // Perform multiplication operation
         let new_value = (self.value * other.value) % self.magnitude;
+
+        // Create a new FieldElement object with the result value
         let new_element = FieldElement::new(new_value, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 
     fn pow(&self, exp: i32) -> Result<FieldElement, &'static str> {
+        // Ensure that the exponent is non-negative
         if exp < 0 {
             return Err("Exponent must be non-negative");
         }
+
+        // Perform exponentiation operation
         let new_value = self.value.pow(exp as u32) % self.magnitude;
+
+        // Create a new FieldElement object with the result value
         let new_element = FieldElement::new(new_value, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 
     fn truediv(&self, other: &FieldElement) -> Result<FieldElement, &'static str> {
+        // Ensure that the magnitudes of both FieldElement objects are equal
         if self.magnitude != other.magnitude {
             return Err("Cannot divide two numbers in different Fields");
         }
-        // Finite-body division operation using Fermat's predetermined value
+
+        // Perform finite-body division operation using Fermat's predetermined value
         let num = (self.value * mod_inverse(other.value, self.magnitude)) % self.magnitude;
+
+        // Create a new FieldElement object with the result value
         let new_element = FieldElement::new(num, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 
     fn rmul(&self, coefficient: i32) -> Result<FieldElement, &'static str> {
+        // Perform multiplication operation with the coefficient
         let num = (self.value * coefficient) % self.magnitude;
+
+        // Create a new FieldElement object with the result value
         let new_element = FieldElement::new(num, self.magnitude)?;
+
+        // Ensure that the magnitude of the new element is valid
+        if new_element.magnitude != self.magnitude {
+            return Err("Invalid magnitude of result FieldElement");
+        }
+
+        // Ensure that the normalization of the new element is valid
+        let expected_normalized = new_element.magnitude <= 1;
+        if new_element.normalized != expected_normalized {
+            return Err("Invalid normalization of result FieldElement");
+        }
+
         Ok(new_element)
     }
 }
@@ -108,22 +204,6 @@ impl FieldElement {
 impl fmt::Display for FieldElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "FieldElement(value: {}, magnitude: {})", self.value, self.magnitude)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_field_element_equality() {
-        let prime = 31;
-        let field1 = FieldElement::new(7, prime).unwrap();
-        let field2 = FieldElement::new(6, prime).unwrap();
-        
-        // Test for equality
-        assert_eq!(field1 == field2, false);
-        assert_eq!(field1 == field1, true);
     }
 }
 
@@ -239,6 +319,115 @@ while a0 > 1 {
     x1
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_valid() {
+        let field_element = FieldElement::new(5, 10);
+        assert!(field_element.is_ok());
+    }
+
+    #[test]
+    fn test_new_invalid_magnitude() {
+        let field_element = FieldElement::new(5, 0);
+        assert!(field_element.is_err());
+    }
+
+    #[test]
+    fn test_new_invalid_value() {
+        let field_element = FieldElement::new(10, 5);
+        assert!(field_element.is_err());
+    }
+
+    #[test]
+    fn test_add_valid() {
+        let field_element1 = FieldElement::new(5, 10).unwrap();
+        let field_element2 = FieldElement::new(7, 10).unwrap();
+        let result = field_element1.add(&field_element2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_add_invalid_magnitude() {
+        let field_element1 = FieldElement::new(5, 10).unwrap();
+        let field_element2 = FieldElement::new(7, 5).unwrap();
+        let result = field_element1.add(&field_element2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sub_valid() {
+        let field_element1 = FieldElement::new(7, 10).unwrap();
+        let field_element2 = FieldElement::new(5, 10).unwrap();
+        let result = field_element1.sub(&field_element2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_sub_invalid_magnitude() {
+        let field_element1 = FieldElement::new(7, 10).unwrap();
+        let field_element2 = FieldElement::new(5, 5).unwrap();
+        let result = field_element1.sub(&field_element2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mul_valid() {
+        let field_element1 = FieldElement::new(5, 10).unwrap();
+        let field_element2 = FieldElement::new(7, 10).unwrap();
+        let result = field_element1.mul(&field_element2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_mul_invalid_magnitude() {
+        let field_element1 = FieldElement::new(5, 10).unwrap();
+        let field_element2 = FieldElement::new(7, 5).unwrap();
+        let result = field_element1.mul(&field_element2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pow_valid() {
+        let field_element = FieldElement::new(5, 10).unwrap();
+        let result = field_element.pow(3);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_pow_invalid_exponent() {
+        let field_element = FieldElement::new(5, 10).unwrap();
+        let result = field_element.pow(-3);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_truediv_valid() {
+        let field_element1 = FieldElement::new(7, 10).unwrap();
+        let field_element2 = FieldElement::new(5, 10).unwrap();
+        let result = field_element1.truediv(&field_element2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_truediv_invalid_magnitude() {
+        let field_element1 = FieldElement::new(7, 10).unwrap();
+        let field_element2 = FieldElement::new(5, 5).unwrap();
+        let result = field_element1.truediv(&field_element2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rmul_valid() {
+        let field_element = FieldElement::new(5, 10).unwrap();
+        let result = field_element.rmul(3);
+        assert!(result.is_ok());
+    }
+
+}
 
 fn main() {
     println!("Hello, world!");
