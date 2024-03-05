@@ -1,12 +1,12 @@
 
 
-/**********************************************************************************************************************************************
-* Compared to Jimmy's Python code(class FieldElement, ecc.py), what the different approach to field elements is that the concept of 'magnitude'
-* by referring to the following file : https://github.com/bitcoin-core/secp256k1/blob/master/src/field.h
-* In the context of elliptic curve cryptography and field arithmetic, "magnitude" refers to the size or order of a field element. 
-* It is created with FieldElement objects and verified that the generated objects' magnitude and normalized are valid to verify their validity
-* In addition, it represents the number of bits required to represent the element in binary form.
-***********************************************************************************************************************************************/
+/***********************************************************************************************************************************************
+* Compared to Jimmy's Python code(class FieldElement, ecc.py), what the different approach to field elements is that the concept of 'magnitude'*
+* by referring to the following file : https://github.com/bitcoin-core/secp256k1/blob/master/src/field.h                                       *
+* In the context of elliptic curve cryptography and field arithmetic, "magnitude" refers to the size or order of a field element.              *
+* It is created with FieldElement objects and verified that the generated objects' magnitude and normalized are valid to verify their validity *
+* In addition, it represents the number of bits required to represent the element in binary form.                                              *
+************************************************************************************************************************************************/
 
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -24,7 +24,7 @@ use std::fmt::{Debug, Display};
 *  The __ne___ method is automatically provided when implementing the PartialEq trait.
 *
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct FieldElement {
     value: i32,
     magnitude: i32,
@@ -50,6 +50,15 @@ impl FieldElement {
             magnitude,
             normalized,
         })
+    }
+
+    // Returns a new FieldElement with value 0 and the given magnitude
+    fn zero(magnitude: i32) -> FieldElement {
+        FieldElement {
+            value: 0,
+            magnitude,
+            normalized: magnitude <= 1,
+        }
     }
 
     fn add(&self, other: &FieldElement) -> Result<FieldElement, &'static str> {
@@ -211,25 +220,27 @@ impl FieldElement {
 *
 *  Therefore, validation using concepts such as 'magnitude' and 'normalized' can be skipped in the implementation of methods in Point struct.
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Point {
     x: Option<FieldElement>,
     y: Option<FieldElement>,
     a: FieldElement,
     b: FieldElement,
+    infinity: bool,
 }
+
 
 impl Point {
     fn new(x: Option<FieldElement>, y: Option<FieldElement>, a: FieldElement, b: FieldElement) -> Result<Self, &'static str> {
         if let (Some(ref x), Some(ref y)) = (&x, &y) {
             let x_cubed = x.pow(3)?;
             let y_squared = y.pow(2)?;
-            let equation = &x_cubed + &(&a * x) + &b;
+            let equation = x_cubed.clone() + (&a.clone() * x.clone()) + b.clone(); // For some reasons, it's generally recommended to implement the Add trait when defining operator overloads or operations.
             if y_squared != equation {
                 return Err("Point is not on the curve");
             }
         }
-        Ok(Point { x, y, a, b })
+        Ok(Point { x: Some(x.unwrap_or_else(|| FieldElement::zero())), y: Some(y.unwrap_or_else(|| FieldElement::zero())), a, b, infinity: x.is_none() })
     }
 
     fn add(&self, other: &Point) -> Result<Point, &'static str> {
@@ -237,10 +248,10 @@ impl Point {
             return Err("Points are not on the same curve");
         }
 
-        if self.x.is_none() {
+        if self.x.infinity() {
             return Ok(other.clone());
         }
-        if other.x.is_none() {
+        if other.x.infinity() {
             return Ok(self.clone());
         }
 
@@ -266,9 +277,27 @@ impl Point {
         // But for completeness, we handle it here.
         Err("Unexpected condition reached")
     }
+
+    // Method to perform scalar multiplication operation
+    fn rmul(&self, coefficient: usize) -> Result<Point, &'static str> {
+        let mut coef = coefficient; // Copy of the scalar value
+        let mut current = self.clone(); // Copy of the current point
+        let mut result = Point::new(None, None, self.a.clone(), self.b.clone())?; // Create a new point to store the result
+
+        // Repeat the multiplication operation until the scalar value becomes zero
+        while coef > 0 {
+            if coef & 1 == 1 {
+                result = result.add(&current)?; // Add the current point to the result
+            }
+            current = current.add(&current)?; // Double the current point
+            coef >>= 1; // Halve the scalar value
+        }
+        Ok(result)
+    }
 }
 
 
+/* 
 struct S256field {
 
 }
@@ -336,6 +365,8 @@ impl PrivateKey {
     fn wif() {}
 
 }
+
+*/
 
 impl fmt::Display for FieldElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -453,6 +484,69 @@ mod tests {
     }
 
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_point_new_valid() {
+        // Test valid point creation
+        let x = FieldElement::new(2, 5).unwrap();
+        let y = FieldElement::new(3, 5).unwrap();
+        let a = FieldElement::new(4, 5).unwrap();
+        let b = FieldElement::new(5, 5).unwrap();
+        let point = Point::new(Some(x), Some(y), a, b);
+        assert!(point.is_ok());
+    }
+    
+    #[test]
+    fn test_point_new_invalid() {
+        // Test invalid point creation (point not on the curve)
+        let x = FieldElement::new(2, 5).unwrap();
+        let y = FieldElement::new(3, 5).unwrap();
+        let a = FieldElement::new(4, 5).unwrap();
+        let b = FieldElement::new(6, 5).unwrap(); // Incorrect b value
+        let point = Point::new(Some(x), Some(y), a, b);
+        assert!(point.is_err());
+    }
+    
+    #[test]
+    fn test_point_add() {
+        // Test point addition
+        let a = FieldElement::new(2, 5).unwrap();
+        let b = FieldElement::new(3, 5).unwrap();
+        let x1 = FieldElement::new(1, 5).unwrap();
+        let y1 = FieldElement::new(1, 5).unwrap();
+        let x2 = FieldElement::new(2, 5).unwrap();
+        let y2 = FieldElement::new(4, 5).unwrap();
+        let p1 = Point::new(Some(x1), Some(y1), a.clone(), b.clone()).unwrap();
+        let p2 = Point::new(Some(x2), Some(y2), a.clone(), b.clone()).unwrap();
+        let sum = p1.add(&p2);
+        assert!(sum.is_ok());
+        let result = sum.unwrap();
+        assert_eq!(result.x.unwrap().num, 3);
+        assert_eq!(result.y.unwrap().num, 1);
+    }
+    
+    #[test]
+    fn test_point_rmul() {
+        // Test scalar multiplication
+        let a = FieldElement::new(2, 5).unwrap();
+        let b = FieldElement::new(3, 5).unwrap();
+        let x = FieldElement::new(1, 5).unwrap();
+        let y = FieldElement::new(1, 5).unwrap();
+        let p = Point::new(Some(x), Some(y), a.clone(), b.clone()).unwrap();
+        let scalar = 3;
+        let result = p.rmul(scalar);
+        assert!(result.is_ok());
+        let result_point = result.unwrap();
+        assert_eq!(result_point.x.unwrap().num, 3);
+        assert_eq!(result_point.y.unwrap().num, 1);
+    }
+}
+
 
 fn main() {
     println!("Hello, world!");
